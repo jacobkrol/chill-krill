@@ -132,7 +132,7 @@ function App() {
         });
       }
     }
-  }, [page]);
+  }, [page, reveal, fetchAnswers]);
 
   const score = useMemo(() => {
     return answers.reduce((p1, c1) => c1.answers.reduce((p2, c2) => c2.score + p2, 0) + p1, 0);
@@ -186,19 +186,6 @@ function App() {
       return { networkError: true };
     }
   }, []);
-
-  const handleConfirmCorrection = (evt: any) => {
-    const promptId = evt.currentTarget.dataset["promptId"] as PromptId;
-    const response = responses.find(r => r.promptId === promptId);
-    if (!response?.correction?.length) return;
-
-    const input: HTMLInputElement | null = document.querySelector(`input[data-promptid="${promptId}"]`);
-    if (!input) return;
-
-    input.value = response.correction;
-    const prevResponses = [...responses].filter(r => r.promptId !== promptId);
-    setResponses(prevResponses);
-  }
 
   const handleAnswerSubmit = async (evt: any) => {
     setIsSubmitting(true);
@@ -340,7 +327,7 @@ function App() {
                     }
                   </div>
                   <div className="answer-response-row">
-                    <p className="answer-response">{!!response
+                    <p className="answer-response">{response
                       ? typeof response.correction === "string"
                         ? `Did you mean "${response.correction}"?`
                         : `No results found for "${response.answer}" :(`
