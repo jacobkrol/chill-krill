@@ -282,6 +282,7 @@ dialog {
 .prompt-box-area {
   max-height: 0;
   overflow: hidden;
+  background-color: var(--bg);
   transition: max-height 0.2s ease-out, box-shadow 250ms ease-out;
 
   &.active {
