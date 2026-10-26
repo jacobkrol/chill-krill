@@ -8,8 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',  // Automatically update Service Worker
-      includeAssets: ['favicon.ico', 'robots.txt', 'apple-touch-icon.png'],  // Files to cache
+      includeAssets: ['chill-schooler.png', 'robots.txt', 'apple-touch-icon.png'],  // Files to cache
       manifest: {
+        id: 'kroljs_chill-krill',
         name: 'Chill Krill',  // Full app name
         short_name: 'Chill Krill',  // Short name displayed on home screen
         description: 'General knowledge trivia at your pace',
