@@ -18,10 +18,13 @@
   --tier-krillion:#ffd166;
 }
 
+html {
+  background-color: var(--bg);
+}
+
 body {
   margin: 0;
   font-family: "VT323", "Segoe UI", Roboto, monospace;
-  background-color: var(--bg);
   background: linear-gradient(to top, var(--bg), #1E254B);
   color: var(--color);
   padding: 20px;
