@@ -191,7 +191,7 @@ function App() {
   }, [answers, goalScore]);
 
   const hasQualifiedScore = useMemo(() => (
-    scoringAnswers.reduce((p,c) => p + c, 0) >= goalScore
+    goalScore > 0 && scoringAnswers.reduce((p,c) => p + c, 0) >= goalScore
   ), [scoringAnswers, goalScore]);
 
   const openQualifiedDialog = useCallback(() => {
@@ -358,11 +358,11 @@ function App() {
 
     const shareData = {
       title: "🧊 Chill Krill 🦐 " + isoDate,
-      text: "Chill Krill  🧊🦐  " + isoDate + "\n" + scoringAnswers
+      text: "Chill Krill  -  " + isoDate + "\n(" + scoringAnswers.length + ") " + scoringAnswers
         .map(getTierFromScore)
         .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
         .map(tier => emojiMap[tier])
-        .join("") + "\n",
+        .join("") + "\n\n",
       url: "https://kroljs.com/chill-krill"
     }
 
