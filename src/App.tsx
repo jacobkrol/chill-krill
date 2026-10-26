@@ -358,11 +358,11 @@ function App() {
 
     const shareData = {
       title: "🧊 Chill Krill 🦐 " + isoDate,
-      text: scoringAnswers
+      text: "Chill Krill  🧊🦐  " + isoDate + "\n" + scoringAnswers
         .map(getTierFromScore)
         .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
         .map(tier => emojiMap[tier])
-        .join(""),
+        .join("") + "\n",
       url: "https://kroljs.com/chill-krill"
     }
 
