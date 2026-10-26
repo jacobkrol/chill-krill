@@ -371,14 +371,12 @@ function App() {
         await navigator.share(shareData);
       } catch (err) {
         console.error(err);
-        window.alert("An error occurred when creating the share content");
       }
     } else {
       try {
         await navigator.clipboard.writeText(shareData.url);
       } catch (clipboardErr) {
         console.error(clipboardErr);
-        window.alert("An error occurred when creating the share content");
       }
     }
   }, [scoringAnswers]);
