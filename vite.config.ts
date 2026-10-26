@@ -13,7 +13,7 @@ export default defineConfig({
         name: 'Chill Krill',  // Full app name
         short_name: 'Chill Krill',  // Short name displayed on home screen
         description: 'General knowledge trivia at your pace',
-        theme_color: '#4de3ff',  // Color of the top bar
+        theme_color: '#1E293C',  // Color of the top bar
         background_color: '#1E293C',  // Splash screen background color
         display: 'standalone',  // Makes it look like a native app (hides browser UI)
         start_url: '/',
