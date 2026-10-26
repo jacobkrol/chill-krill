@@ -400,7 +400,7 @@ dialog {
 
   svg {
     background-color: var(--bg);
-    outline: 3px solid var(--bg);
+    border: 3px solid var(--bg);
   }
 
   .score-track-block {
@@ -413,7 +413,7 @@ dialog {
     }
 
     &:has(.bubble-group-label) .score-track-line {
-      transform: translateY(-10px);
+      transform: translateY(-9.5px);
     }
 
     .score-track-line {

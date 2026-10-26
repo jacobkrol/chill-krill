@@ -7,7 +7,7 @@ interface BubbleGroupProps {
 }
 
 function BubbleGroup(props: BubbleGroupProps) {
-  const { filled, size = 18, label = "" } = props;
+  const { filled, size = 22, label = "" } = props;
   return (
     <div className={`bubble-group ${filled ? "filled" : ""}`}>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 64 64`} width={size} height={size} fill="none" aria-label="Four underwater bubbles">
