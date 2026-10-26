@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://kroljs.com/chill-krill",
+  "homepage": "https://chill-krill.kroljs.com/",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
