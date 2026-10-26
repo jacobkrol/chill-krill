@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import './App.css';
 import './bubble-button.css';
 import PlainKrillion from "./assets/krillion-gray.png";
@@ -8,9 +8,14 @@ import Deepcut from "./assets/deepcut.png";
 import Rare from "./assets/rare.png";
 import Schooler from "./assets/schooler.png";
 import Plankton from "./assets/plankton.png";
+import BubbleGroup from './BubbleGroup';
 
 const PROMPT_STORAGE_NAME = "prompts";
-const isoDate = new Date().toISOString().split('T')[0];
+const ANSWER_STORAGE_NAME = "answers";
+const isoDate = Intl.DateTimeFormat('sv-SE', { // sweden uses ISO style by default
+  timeZone: 'America/New_York',
+  dateStyle: 'short'
+}).format(new Date());
 const playerId = crypto.randomUUID();
 
 const scoreMap = {
@@ -20,6 +25,10 @@ const scoreMap = {
   schooler: 30,
   plankton: 10
 };
+
+const getTierFromScore = (x: number) => Object.entries(scoreMap).find(([_,v]) => v === x)?.[0];
+
+const scoreTrackMilestones = [30, 24, 18, 12, 9, 7];
 
 type Tier = "krillion" | "deepcut" | "rare" | "schooler" | "plankton";
 
@@ -52,9 +61,10 @@ interface Response {
 function App() {
   const [page, setPage] = useState("home");
   const [reveal, setReveal] = useState<Reveal>();
-  const [answers, setAnswers] = useState<Prompt[]>([]);
-  const [responses, setResponses] = useState<Response[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [answers, setAnswers] = useState<Prompt[]>([]); // accepted answers
+  const [responses, setResponses] = useState<Response[]>([]); // server non-accepted responses
+  const [isSubmitting, setIsSubmitting] = useState(false); // loading state
+  const [isPerfect, setIsPerfect] = useState(false);
 
   const handlePlay = () => {
     setPage("play");
@@ -86,7 +96,7 @@ function App() {
     }
   }
 
-  const fetchAnswers = useCallback(async () => {
+  const fetchReveal = useCallback(async () => {
     try {
       // pull from cache
       const cache = localStorage.getItem(PROMPT_STORAGE_NAME);
@@ -111,28 +121,54 @@ function App() {
         })
       });
       const json = await res.json();
-      if (json.success && json.status === 200) {
+      if (json.success && json.status === 200 && json.data) {
         localStorage.setItem(PROMPT_STORAGE_NAME, JSON.stringify(json));
-        return json;
+        return json.data;
       }
     } catch(err) {
       console.error(err);
     }
   }, []);
 
-  useEffect(() => {
-    if (page === "play") {
-      if (!reveal || reveal?.date !== isoDate) {
-        fetchAnswers().then(res => {
-          if (!res) throw new Error("Error loading answers");
-          setReveal(res);
-        }).catch((err) => {
-          console.error(err);
-          window.alert("An error occurred loading today's puzzle. Please try again later.");
-        });
+  const fetchAnswers = useCallback(() => {
+    try {
+      const cache = localStorage.getItem(ANSWER_STORAGE_NAME);
+      if (!cache?.length) return;
+
+      const cacheAnswers = JSON.parse(cache);
+      if (cacheAnswers.date !== isoDate) return;
+
+      return cacheAnswers.answers;
+    } catch(err) {
+      console.error(err);
+    }
+  }, []);
+
+  const hydratePuzzle = useCallback(async () => {
+    if (!reveal || reveal?.date !== isoDate) {
+      try {
+        const res = await fetchReveal()
+        if (!res) throw new Error("Error loading answers");
+        setReveal(res);
+      } catch(err) {
+        console.error(err);
+        window.alert("An error occurred loading today's puzzle. Please try again later.");
       }
     }
-  }, [page, reveal, fetchAnswers]);
+    if (!answers.length) {
+      const cacheAnswers = fetchAnswers();
+      if (cacheAnswers?.length) {
+        setAnswers(cacheAnswers);
+      }
+    }
+  }, [reveal, answers.length, fetchAnswers, fetchReveal]);
+
+  useEffect(() => {
+    if (page === "play") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      hydratePuzzle();
+    }
+  }, [page, hydratePuzzle]);
 
   const score = useMemo(() => {
     return answers.reduce((p1, c1) => c1.answers.reduce((p2, c2) => c2.score + p2, 0) + p1, 0);
@@ -153,6 +189,28 @@ function App() {
       return runningTotal >= goalScore ? p1 : [...p1, c1];
     }, []);
   }, [answers, goalScore]);
+
+  const hasQualifiedScore = useMemo(() => (
+    scoringAnswers.reduce((p,c) => p + c, 0) >= goalScore
+  ), [scoringAnswers, goalScore]);
+
+  const openQualifiedDialog = useCallback(() => {
+    const dialog = document.getElementById("qualified-dialog") as HTMLDialogElement;
+    dialog.showModal();
+  }, []);
+
+  const openPerfectDialog = useCallback(() => {
+    const dialog = document.getElementById("perfect-dialog") as HTMLDialogElement;
+    dialog.showModal();
+  }, []);
+
+  useEffect(() => {
+    if (hasQualifiedScore && scoringAnswers.length === 7 && !isPerfect) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsPerfect(true);
+      openPerfectDialog();
+    }
+  }, [scoringAnswers, hasQualifiedScore, openPerfectDialog, isPerfect]);
 
   const fetchSubmissionResponse = useCallback(async (answer: string, promptId: PromptId) => {
     try {
@@ -187,12 +245,17 @@ function App() {
     }
   }, []);
 
+  const saveAnswers = useCallback((answerList: Prompt[]) => {
+    localStorage.setItem(ANSWER_STORAGE_NAME, JSON.stringify({ date: isoDate, answers: answerList }));
+  }, []);
+
   const handleAnswerSubmit = async (evt: any) => {
     setIsSubmitting(true);
 
     const userValue = evt.currentTarget.previousElementSibling.value;
     const promptId = evt.currentTarget.dataset["promptid"] as PromptId;
     const updatedAnswers = structuredClone(answers);
+    const wasQualified = hasQualifiedScore;
 
     // clear input and suggestion/feedback
     const inputElement = evt.currentTarget.previousElementSibling;
@@ -244,6 +307,16 @@ function App() {
       });
     }
 
+    if (score + newAnswer.score >= goalScore && !wasQualified) {
+      openQualifiedDialog();
+    }
+
+    const area = document.querySelector(`.prompt-box-area[data-promptid="${promptId}"]`) as HTMLDivElement;
+    area.dataset.tier = newAnswer.tier;
+    area.classList.add("scoring");
+    setTimeout(() => area.classList.remove("scoring"), 1200);
+
+    saveAnswers(updatedAnswers);
     setAnswers(updatedAnswers);
     setIsSubmitting(false);
   }
@@ -274,8 +347,63 @@ function App() {
     return imgSrc;
   }
 
+  const handleShare = useCallback(async () => {
+    const emojiMap = {
+      "plankton": "🫧",
+      "schooler": "🐟",
+      "rare": "🔴",
+      "deepcut": "🟣",
+      "krillion": "⭐"
+    };
+
+    const shareData = {
+      title: "🧊 Chill Krill 🦐 " + isoDate,
+      text: scoringAnswers
+        .map(getTierFromScore)
+        .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
+        .map(tier => emojiMap[tier])
+        .join(""),
+      url: "https://kroljs.com/chill-krill"
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error(err);
+        window.alert("An error occurred when creating the share content");
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+      } catch (clipboardErr) {
+        console.error(clipboardErr);
+        window.alert("An error occurred when creating the share content");
+      }
+    }
+  }, [scoringAnswers]);
+
   return (
     <>
+      <dialog id="qualified-dialog">
+        <div className="dialog-body">
+          <p className="dialog-title">Goal score reached!</p>
+          <p>Continue playing to find higher scoring answers and reach the goal score in fewer answers.</p>
+          <div className="dialog-btn-row">
+            <button commandfor="qualified-dialog" command="close">Keep Diving</button>
+          </div>
+        </div>
+      </dialog>
+      <dialog id="perfect-dialog">
+        <div className="dialog-body">
+          <p className="dialog-title">Perfect Score!</p>
+          <p>You've found a top scoring answer to every prompt. Share with your friends to show off the <em>depth</em> of your knowledge!</p>
+          <div className="dialog-btn-row">
+            <button className="primary-btn" onClick={handleShare}>Share</button>
+            <button commandfor="perfect-dialog" command="close">Close</button>
+          </div>
+        </div>
+      </dialog>
       {page === "home" && (
         <main id="home-page">
           <h1>Chill Krill</h1>
@@ -291,17 +419,32 @@ function App() {
       {page === "play" && (
         <main id="play-page">
           <h1>Chill Krill</h1>
-          <p id="hero-score"><span className="hero-user-score">{scoringAnswers.length}</span> answers <span className="hero-user-score">{scoringAnswers.reduce((p,c) => p + c, 0)}</span> / {goalScore}</p>
-          {score >= goalScore
-            ? <div id="hero-answers">
-                {scoringAnswers.map((a,i) => {
-                  const imgSrc = getImgForAnswer(a);
-                  const tier = Object.entries(scoreMap).find(([_,v]) => v === a)?.[0];
-                  return (
-                    <img src={imgSrc} key={i} className="hero-answer-icon" data-tier={tier} alt={tier} />
-                )})}
-              </div>
-            : <p id="unqualified-note">(not yet qualified)</p>}
+          <div id="hero-section">
+            {hasQualifiedScore && <div id="score-track">
+              {scoreTrackMilestones.map((val, i) => (
+                <span key={i} className="score-track-block">
+                  {i > 0 && <div className={`score-track-line ${scoringAnswers.length <= val ? "complete" : ""}`}></div>}
+                  <BubbleGroup filled={scoringAnswers.length <= val} label={val.toString()} />
+                </span>
+              ))}
+            </div>}
+            <p id="hero-score">
+              {hasQualifiedScore
+                ? <>using <span className="hero-user-score">{scoringAnswers.length}</span> dives</>
+                : <><span className="hero-user-score">{scoringAnswers.reduce((p,c) => p + c, 0)}</span> / {goalScore}</>
+              }
+            </p>
+            {hasQualifiedScore
+              ? <div id="hero-answers">
+                  {scoringAnswers.map((a,i) => {
+                    const imgSrc = getImgForAnswer(a);
+                    const tier = getTierFromScore(a);
+                    return (
+                      <img src={imgSrc} key={i} className="hero-answer-icon" data-tier={tier} alt={tier} />
+                  )})}
+                </div>
+              : <p id="unqualified-note">Not yet qualified. Reach the goal score first and then improve your answer score efficiency!</p>}
+          </div>
           {reveal && reveal.prompts.map((p) => {
             const userAnswers = answers.find(a => a.id === p.id)?.answers;
             const topAnswer = (userAnswers ?? []).reduce((p, c) => (c.score > p.score ? c : p), { score: 0, tier: "" });
@@ -314,18 +457,19 @@ function App() {
                 <p>{p.text}</p>
                 <i className="toggle"></i>
               </button>
-              <div className="prompt-box-area">
+              <div className="prompt-box-area" data-promptid={p.id}>
                 <div className="prompt-box-content">
-                  <div className="answer-result-list">
-                    {answers.find(a => a.id === p.id)?.answers.length
-                      ? answers.find(a => a.id === p.id)?.answers.toSorted((a,b) => a.score > b.score ? -1 : 1).map((a, i) => (
-                        <div key={i} className="answer-result-row">
-                          <p>{a.answer}</p>
-                          <p>+{a.score}</p>
-                        </div>
-                      )) : (<p>Type an answer below to start earning points.</p>)
-                    }
-                  </div>
+                  {answers.find(a => a.id === p.id)?.answers.length
+                    ? (<div className="answer-result-list">
+                        {answers.find(a => a.id === p.id)?.answers.toSorted((a,b) => a.score > b.score ? -1 : 1).map((a, i) => (
+                          <React.Fragment key={i}>
+                            <p>{a.answer}</p>
+                            <p>+{a.score}</p>
+                          </React.Fragment>
+                        ))}
+                    </div>)
+                    : (<p>Type an answer below to start earning points.</p>)
+                  }
                   <div className="answer-response-row">
                     <p className="answer-response">{response
                       ? typeof response.correction === "string"
@@ -341,6 +485,7 @@ function App() {
               </div>
             </div>
           )})}
+          {hasQualifiedScore && <button id="share-btn" className="primary-btn" onClick={handleShare}>Share Results</button>}
           <button id="back-button" onClick={handleBack}>&#9664;</button>
         </main>
       )}
@@ -349,7 +494,39 @@ function App() {
           <h1>Chill Krill</h1>
           <button id="back-button" onClick={handleBack}>&#9664;</button>
           <h2>How to Play</h2>
-          <p>Blah blah blah ...</p>
+          <p>You're presented with 7 general knowledge prompts. They'll look something like this:</p>
+          <div className="prompt-box">
+            <button className="prompt-box-title">
+              <img src={PlainKrillion} className="prompt-box-icon" alt="unanswered tier" />
+              <p>Name a world capital starting with "A-"</p>
+              <i className="toggle"></i>
+            </button>
+          </div>
+          <p>There are 100s to 1000s of possible answers to each prompt. More obscure answers are worth more points.</p>
+          <div id="how-score-table">
+            <img src={Plankton} data-tier="plankton" alt="plankton" />
+            <p>+10</p>
+            <img src={Schooler} data-tier="schooler" alt="schooler" />
+            <p>+30</p>
+            <img src={Rare} data-tier="rare" alt="rare" />
+            <p>+60</p>
+            <img src={Deepcut} data-tier="deepcut" alt="deep cut" />
+            <p>+85</p>
+            <img src={Krillion} data-tier="krillion" alt="krillion" />
+            <p>+100</p>
+          </div>
+          <p>Try to reach the goal score with as few "dives" (answers) as possible. But there's no rush!</p>
+          <p>Work your way to a perfect score before the puzzle resets at midnight EST.</p>
+          <div id="hero-answers">
+            {new Array(7).fill(100).map((a,i) => {
+              const imgSrc = getImgForAnswer(a);
+              const tier = Object.entries(scoreMap).find(([_,v]) => v === a)?.[0];
+              return (
+                <img src={imgSrc} key={i} className="hero-answer-icon" data-tier={tier} alt={tier} />
+            )})}
+          </div>
+          <p>Good luck!</p>
+          <button onClick={handleBack}>Swim Back</button>
         </main>
       )}
       <footer>&copy; <span id="year">{new Date().getFullYear()}</span> // <a href="https://kroljs.com" rel="noopener noreferrer">Jacob Krol</a></footer>

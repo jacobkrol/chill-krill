@@ -110,7 +110,64 @@ button {
   border-radius: var(--btn-radius);
 }
 
-#play-page {
+.primary-btn {
+  background-color: var(--color);
+  color: var(--bg);
+  box-shadow: 0 0 6px #fff6;
+}
+
+dialog {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  background: var(--bg);
+  border: 3px solid var(--border-color);
+  width: clamp(80px, 85%, 500px);
+  color: var(--color);
+  box-shadow: 0 0 6px #fff6;
+
+  &::backdrop {
+    background-color: var(--bg);
+    opacity: 0.7;
+  }
+
+  .dialog-body {
+    display: grid;
+    padding: 20px 20px 0;
+  }
+
+  .dialog-title {
+    font-size: 1.6rem;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  .dialog-btn-row {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 25px;
+    margin-top: 15px;
+  }
+
+  button {
+    color: var(--color);
+    padding: 3px 18px;
+  }
+}
+
+@keyframes hero-answer-dance {
+  from {
+    transform: translateY(-2px) translateX(1px) rotate(-5deg);
+  }
+  to {
+    transform: translateY(2px) translateX(-1px) rotate(5deg);
+  }
+}
+
+#play-page,
+#how-page {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -120,33 +177,39 @@ button {
     text-align: center;
   }
 
+  #hero-section {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-block: 20px;
+    margin-top: 10px;
+    margin-bottom: 20px;
+  }
+
   #hero-score {
-    font-size: 1rem;
-    margin-top: -10px;
+    font-size: 1.2rem;
 
     .hero-user-score {
-      font-size: 3.2rem;
-      margin-left: 5px;
+      font-size: 3.6rem;
     }
   }
 
   #hero-answers {
-    margin-top: -20px;
-    margin-bottom: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 0px;
+    flex-wrap: wrap;
 
     .hero-answer-icon {
       width: 22px;
+      animation: hero-answer-dance 1800ms ease-in-out 0ms infinite alternate-reverse;
+      animation-delay: calc((sibling-index() - 1) * 180ms); 
     }
   }
 
   #unqualified-note {
     color: var(--color-faded);
-    margin-top: -20px;
-    margin-bottom: 15px;
   }
 
   img {
@@ -218,7 +281,7 @@ button {
 .prompt-box-area {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.2s ease-out;
+  transition: max-height 0.2s ease-out, box-shadow 250ms ease-out;
 
   &.active {
     border: 3px solid var(--border-color);
@@ -226,8 +289,44 @@ button {
     border-radius: 0 0 var(--btn-radius) var(--btn-radius);
   }
 
+  &[data-tier="plankton"] {
+    --tier-color: var(--tier-plankton);
+  }
+  &[data-tier="schooler"] {
+    --tier-color: var(--tier-schooler);
+  }
+  &[data-tier="rare"] {
+    --tier-color: var(--tier-rare);
+  }
+  &[data-tier="deepcut"] {
+    --tier-color: var(--tier-deepcut);
+  }
+  &[data-tier="krillion"] {
+    --tier-color: var(--tier-krillion);
+  }
+  &.scoring {
+    box-shadow: 0 0 36px 3px var(--tier-color) inset;
+  }
+
   .prompt-box-content {
     margin: 24px 10px;
+  }
+}
+
+.answer-result-list {
+  display: grid;
+  grid-template-columns: max-content 30px;
+  width: max-content;
+  padding-inline: 20px;
+  margin: 0 auto;
+  grid-column-gap: 20px;
+  grid-row-gap: 6px;
+
+  p {
+    max-width: 220px;
+    text-align: left !important;
+    align-self: center;
+    line-height: 1;
   }
 }
 
@@ -250,7 +349,7 @@ button {
 }
 
 .answer-response-row {
-  margin-top: 20px;
+  margin-top: 5px;
   color: #df8355;
 
   .answer-response {
@@ -288,6 +387,74 @@ button {
     min-width: 71px;
     display: grid;
     place-content: center;
+  }
+}
+
+#score-track {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  width: 90%;
+  max-width: 500px;
+  margin: 0 auto;
+
+  svg {
+    background-color: var(--bg);
+    outline: 3px solid var(--bg);
+  }
+
+  .score-track-block {
+    display: flex;
+    flex-grow: 1;
+    align-items: center;
+
+    &:first-of-type {
+      flex-grow: 0;
+    }
+
+    &:has(.bubble-group-label) .score-track-line {
+      transform: translateY(-10px);
+    }
+
+    .score-track-line {
+      flex-grow: 1;
+      height: 0;
+      border: 1px solid var(--color-faded);
+
+      &.complete {
+        border: 2px solid var(--border-color);
+      }
+    }
+  }
+}
+
+#share-btn {
+  width: clamp(160px, 50%, 300px);
+  align-self: center;
+  background-color: var(--color);
+  color: var(--bg);
+  box-shadow: 0 0 6px #fff6;
+}
+
+#how-page {
+  h2 {
+    text-align: center;
+  }
+
+  #how-score-table {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: max-content;
+    place-items: center;
+    margin: 0 auto;
+
+    img {
+      width: 48px;
+    }
+
+    img, p {
+
+    }
   }
 }
 
