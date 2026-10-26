@@ -21,7 +21,7 @@
 body {
   margin: 0;
   font-family: "VT323", "Segoe UI", Roboto, monospace;
-  background-color: var(--bg);
+  background: linear-gradient(to top, var(--bg), #1E2C4E);
   color: var(--color);
   padding: 20px;
   min-height: 100svh;
