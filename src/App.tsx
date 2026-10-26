@@ -363,7 +363,7 @@ function App() {
         .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
         .map(tier => emojiMap[tier])
         .join("") + "\n\n",
-      url: "https://kroljs.com/chill-krill"
+      url: "https://chill-krill.kroljs.com"
     }
 
     if (navigator.share) {
