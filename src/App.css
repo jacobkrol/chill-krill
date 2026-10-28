@@ -130,6 +130,7 @@ dialog {
   width: clamp(80px, 85%, 500px);
   color: var(--color);
   box-shadow: 0 0 6px #fff6;
+  border-radius: var(--btn-radius);
 
   &::backdrop {
     background-color: var(--bg);
@@ -191,10 +192,10 @@ dialog {
   }
 
   #hero-score {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
 
     .hero-user-score {
-      font-size: 3.6rem;
+      font-size: 4.2rem;
     }
   }
 
@@ -206,7 +207,7 @@ dialog {
     flex-wrap: wrap;
 
     .hero-answer-icon {
-      width: 22px;
+      width: 28px;
       animation: hero-answer-dance 1800ms ease-in-out 0ms infinite alternate-reverse;
       animation-delay: calc((sibling-index() - 1) * 180ms); 
     }
@@ -240,7 +241,7 @@ dialog {
   }
 
   .prompt-box-title {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
@@ -269,7 +270,7 @@ dialog {
 
   .prompt-box-icon {
     width: 28px;
-    margin-right: 6px;
+    margin-right: 8px;
   }
 
   .prompt-box:has(.prompt-box-area.active) button {
@@ -332,6 +333,7 @@ dialog {
     text-align: left !important;
     align-self: center;
     line-height: 1;
+    font-size: 1.1rem;
   }
 }
 
@@ -381,6 +383,7 @@ dialog {
     padding: 6px 12px;
     flex-grow: 1;
     font-size: 1.1rem;
+    border-radius: var(--btn-radius);
   }
 
   button {
@@ -392,6 +395,7 @@ dialog {
     min-width: 71px;
     display: grid;
     place-content: center;
+    border-radius: var(--btn-radius) !important;
   }
 }
 
@@ -465,6 +469,13 @@ dialog {
 
 a {
   color: inherit;
+}
+
+#confetti-container {
+  position: fixed;
+  top: 40%;
+  left: 50%;
+  z-index: 999;
 }
 
 footer {

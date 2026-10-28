@@ -9,13 +9,21 @@ import Rare from "./assets/rare.png";
 import Schooler from "./assets/schooler.png";
 import Plankton from "./assets/plankton.png";
 import BubbleGroup from './BubbleGroup';
+import type {
+  Tier,
+  PromptId,
+  Prompt,
+  Reveal,
+  Response,
+  History
+} from './types.ts';
+import { getISODate, getMaxRepresentedQuestions } from './utils.ts';
+import ConfettiExplosion from 'react-confetti-explosion';
 
 const PROMPT_STORAGE_NAME = "prompts";
 const ANSWER_STORAGE_NAME = "answers";
-const isoDate = Intl.DateTimeFormat('sv-SE', { // sweden uses ISO style by default
-  timeZone: 'America/New_York',
-  dateStyle: 'short'
-}).format(new Date());
+const STATS_STORAGE_NAME = "stats";
+const isoDate = getISODate();
 const playerId = crypto.randomUUID();
 
 const scoreMap = {
@@ -30,34 +38,6 @@ const getTierFromScore = (x: number) => Object.entries(scoreMap).find(([_,v]) =>
 
 const scoreTrackMilestones = [30, 24, 18, 12, 9, 7];
 
-type Tier = "krillion" | "deepcut" | "rare" | "schooler" | "plankton";
-
-interface Answer {
-  answer: string;
-  quip?: string;
-  score: number;
-  tier: Tier;
-}
-
-type PromptId = "p1" | "p2" | "p3" | "p4" | "p5" | "p6" | "p7";
-
-interface Prompt {
-  id: PromptId;
-  text: string;
-  answers: Answer[];
-}
-
-interface Reveal {
-  date: string;
-  prompts: Prompt[]
-}
-
-interface Response {
-  promptId: PromptId;
-  answer: string;
-  correction: string | undefined;
-}
-
 function App() {
   const [page, setPage] = useState("home");
   const [reveal, setReveal] = useState<Reveal>();
@@ -65,6 +45,7 @@ function App() {
   const [responses, setResponses] = useState<Response[]>([]); // server non-accepted responses
   const [isSubmitting, setIsSubmitting] = useState(false); // loading state
   const [isPerfect, setIsPerfect] = useState(false);
+  const [isExploding, setIsExploding] = useState(false); // confetti
 
   const handlePlay = () => {
     setPage("play");
@@ -73,6 +54,10 @@ function App() {
   const handleHow = () => {
     setPage("how");
   }
+
+  // const handleStats = () => {
+  //   setPage("stats");
+  // }
 
   const handleBack = () => {
     setPage("home");
@@ -85,6 +70,15 @@ function App() {
   }, [answers])
 
   const handleCollapseClick = (evt: any) => {
+    [...document.querySelectorAll(".prompt-box-title")].forEach(btn => {
+      if (btn !== evt.currentTarget) {
+        btn.classList.remove("active");
+        const contentBox = btn.nextElementSibling as HTMLDivElement;
+        contentBox.style.maxHeight = "";
+        contentBox.classList.remove("active");
+      }
+    });
+
     evt.currentTarget.classList.toggle("active");
     const content = evt.currentTarget.nextElementSibling;
     if (content.style.maxHeight){
@@ -194,13 +188,24 @@ function App() {
     goalScore > 0 && scoringAnswers.reduce((p,c) => p + c, 0) >= goalScore
   ), [scoringAnswers, goalScore]);
 
+  const maxRepresentedQuestions = useMemo(() => (
+    getMaxRepresentedQuestions(answers, scoringAnswers)
+  ), [answers, scoringAnswers]);
+
   const openQualifiedDialog = useCallback(() => {
     const dialog = document.getElementById("qualified-dialog") as HTMLDialogElement;
     dialog.showModal();
+    setIsExploding(true);
   }, []);
 
   const openPerfectDialog = useCallback(() => {
     const dialog = document.getElementById("perfect-dialog") as HTMLDialogElement;
+    dialog.showModal();
+    setIsExploding(true);
+  }, []);
+
+  const openOvertimeDialog = useCallback(() => {
+    const dialog = document.getElementById("overtime-dialog") as HTMLDialogElement;
     dialog.showModal();
   }, []);
 
@@ -245,12 +250,32 @@ function App() {
     }
   }, []);
 
-  const saveAnswers = useCallback((answerList: Prompt[]) => {
+  const saveAnswers = useCallback((answerList: Prompt[], goalScore: number) => {
     localStorage.setItem(ANSWER_STORAGE_NAME, JSON.stringify({ date: isoDate, answers: answerList }));
+
+    try {
+      const cache = localStorage.getItem(STATS_STORAGE_NAME);
+      let stats: History[] = cache?.length ? JSON.parse(cache) : [];
+      stats = stats.filter(x => x.date !== isoDate);
+      stats.push({
+        date: isoDate,
+        answers: answerList,
+        goalScore
+      });
+      localStorage.setItem(STATS_STORAGE_NAME, JSON.stringify(stats));
+    } catch(err) {
+      console.error(err);
+    }
   }, []);
 
   const handleAnswerSubmit = async (evt: any) => {
     setIsSubmitting(true);
+
+    if (getISODate() !== isoDate) {
+      openOvertimeDialog();
+      setIsSubmitting(false);
+      return;
+    }
 
     const userValue = evt.currentTarget.previousElementSibling.value;
     const promptId = evt.currentTarget.dataset["promptid"] as PromptId;
@@ -279,10 +304,30 @@ function App() {
       return;
     }
 
+    const isAcceptedFoundPreviously = serverResponse.accepted && 
+      answers.find(a => a.id == promptId) && 
+      answers.find(a => a.id == promptId)?.answers.find(a => a.answer === serverResponse.answer);
+    const isCorrectedFoundPreviously = serverResponse.accepted === false &&
+      serverResponse.correction &&
+      answers.find(a => a.id == promptId) && 
+      answers.find(a => a.id == promptId)?.answers.find(a => a.answer === serverResponse.correction);
+    if (isAcceptedFoundPreviously || isCorrectedFoundPreviously) {
+      const text = serverResponse.answer ?? serverResponse.correction;
+      if (text.length) {
+        setResponses([...prevResponses, { promptId, text: `"${text}" already found` }]);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     if (!serverResponse.accepted) {
       const correction = serverResponse.correction;
-      if (correction?.length) inputElement.value = correction;
-      setResponses([...prevResponses, { promptId, answer: userValue, correction }]);
+      if (correction?.length) {
+        setResponses([...prevResponses, { promptId, text: `Did you mean "${correction}"?` }]);
+        inputElement.value = correction;
+      } else {
+        setResponses([...prevResponses, { promptId, text: `No results found for "${userValue}" :(` }])
+      }
       setIsSubmitting(false);
       return;
     }
@@ -316,7 +361,7 @@ function App() {
     area.classList.add("scoring");
     setTimeout(() => area.classList.remove("scoring"), 1200);
 
-    saveAnswers(updatedAnswers);
+    saveAnswers(updatedAnswers, goalScore);
     setAnswers(updatedAnswers);
     setIsSubmitting(false);
   }
@@ -358,11 +403,14 @@ function App() {
 
     const shareData = {
       title: "🧊 Chill Krill 🦐 " + isoDate,
-      text: "Chill Krill  -  " + isoDate + "\n(" + scoringAnswers.length + ") " + scoringAnswers
-        .map(getTierFromScore)
-        .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
-        .map(tier => emojiMap[tier])
-        .join("") + "\n\n",
+      text: "" + 
+        `Chill Krill  -  ${isoDate}\n` + 
+        `[${scoringAnswers.length} dives | ${maxRepresentedQuestions} prompts]\n` + 
+        scoringAnswers
+          .map(getTierFromScore)
+          .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
+          .map(tier => emojiMap[tier])
+          .join("") + "\n\n",
       url: "https://chill-krill.kroljs.com"
     }
 
@@ -379,10 +427,28 @@ function App() {
         console.error(clipboardErr);
       }
     }
-  }, [scoringAnswers]);
+  }, [scoringAnswers, maxRepresentedQuestions]);
+
+  const handleExplosionEnd = () => {
+    setIsExploding(false);
+  }
 
   return (
     <>
+      {isExploding && <div id="confetti-container">
+        <ConfettiExplosion 
+          onComplete={handleExplosionEnd} 
+          force={0.9}
+          duration={3000}
+          particleCount={300}
+          colors={[
+            '#4de3ff',
+            '#2097ac',
+            '#5b97a2',
+            '#1e5d68'
+          ]}
+        />
+      </div>}
       <dialog id="qualified-dialog">
         <div className="dialog-body">
           <p className="dialog-title">Goal score reached!</p>
@@ -402,6 +468,17 @@ function App() {
           </div>
         </div>
       </dialog>
+      <dialog id="overtime-dialog">
+        <div className="dialog-body">
+          <p className="dialog-title">Onto the Next Dive</p>
+          <p>This puzzle is no longer available. You'll need to refresh your page to play today's puzzle.</p>
+          <p>You can share this puzzle's results one last time before refreshing, if you'd like.</p>
+          <div className="dialog-btn-row">
+            <button className="primary-btn" onClick={handleShare}>Share</button>
+            <button commandfor="overtime-dialog" command="close">Okay</button>
+          </div>
+        </div>
+      </dialog>
       {page === "home" && (
         <main id="home-page">
           <h1>Chill Krill</h1>
@@ -412,6 +489,7 @@ function App() {
             <div className="right"></div>
           </button>
           <button onClick={handleHow}>How to Play</button>
+          {/* <button onClick={handleStats}>Stats &amp; Achievements</button> */}
         </main>
       )}
       {page === "play" && (
@@ -469,10 +547,8 @@ function App() {
                     : (<p>Type an answer below to start earning points.</p>)
                   }
                   <div className="answer-response-row">
-                    <p className="answer-response">{response
-                      ? typeof response.correction === "string"
-                        ? `Did you mean "${response.correction}"?`
-                        : `No results found for "${response.answer}" :(`
+                    <p className="answer-response">{response?.text?.length
+                      ? response.text
                       : <>&nbsp;</>}</p>
                   </div>
                   <div className="answer-input-row">
@@ -525,6 +601,13 @@ function App() {
           </div>
           <p>Good luck!</p>
           <button onClick={handleBack}>Swim Back</button>
+        </main>
+      )}
+      {page === "stats" && (
+        <main id="stats-page">
+          <h1>Chill Krill</h1>
+          <p>Coming soon</p>
+          <button id="back-button" onClick={handleBack}>&#9664;</button>
         </main>
       )}
       <footer>&copy; <span id="year">{new Date().getFullYear()}</span> // <a href="https://kroljs.com" rel="noopener noreferrer">Jacob Krol</a></footer>
