@@ -172,7 +172,8 @@ dialog {
 }
 
 #play-page,
-#how-page {
+#how-page,
+#stats-page {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -191,12 +192,31 @@ dialog {
     margin-bottom: 20px;
   }
 
-  #hero-score {
-    font-size: 1.25rem;
+  #hero-score-row {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: flex-start;
+  }
 
-    .hero-user-score {
-      font-size: 4.2rem;
+  #hero-score, #hero-diversity {
+    font-size: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-basis: 135px;
+    line-height: 1;
+
+    .hero-user-score-unit {
+      font-size: 2.2rem;
     }
+
+    .hero-score-label {
+      color: var(--color-faded);
+    }
+  }
+
+  .hero-user-score {
+    font-size: 4.2rem;
   }
 
   #hero-answers {
@@ -205,12 +225,13 @@ dialog {
     align-items: center;
     gap: 0px;
     flex-wrap: wrap;
+    margin-top: 10px;
+  }
 
-    .hero-answer-icon {
-      width: 28px;
-      animation: hero-answer-dance 1800ms ease-in-out 0ms infinite alternate-reverse;
-      animation-delay: calc((sibling-index() - 1) * 180ms); 
-    }
+  .hero-answer-icon {
+    width: 28px;
+    animation: hero-answer-dance 1800ms ease-in-out 0ms infinite alternate-reverse;
+    animation-delay: calc((sibling-index() - 1) * 180ms); 
   }
 
   #unqualified-note {
@@ -463,6 +484,77 @@ dialog {
 
     img, p {
 
+    }
+  }
+}
+
+#stats-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  width: 100%;
+  padding: 0  20px;
+}
+
+#hero-stat-container {
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  width: 100%;
+}
+
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  p {
+    font-size: 1.75rem;
+  }
+
+  label {
+    color: var(--color-faded);
+  }
+}
+
+#best-dive-img-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  max-width: 125px;
+
+  img {
+    width: 28px;
+  }
+}
+
+#archive-container {
+  width: 100%;
+}
+
+#archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+
+  .archive-puzzle {
+    display: grid;
+    grid-template-columns: 115px 1fr 80px;
+    border: 2px solid var(--color-faded);
+    border-radius: var(--btn-radius);
+    font-size: 1.2rem;
+    padding: 16px 12px;
+
+    p {
+      text-align: left;
+    }
+
+    p.faded {
+      color: var(--color-faded);
     }
   }
 }

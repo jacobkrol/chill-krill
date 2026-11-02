@@ -28,5 +28,6 @@ export interface Response {
 export interface History {
   date: string;
   answers: Prompt[];
+  reveal: Reveal;
   goalScore: number;
 }

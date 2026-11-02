@@ -1,40 +1,33 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, type MouseEventHandler } from 'react';
 import './App.css';
 import './bubble-button.css';
-import PlainKrillion from "./assets/krillion-gray.png";
 import BrandKrillion from "./assets/krillion.png";
-import Krillion from "./assets/krillion-gold.png";
-import Deepcut from "./assets/deepcut.png";
-import Rare from "./assets/rare.png";
-import Schooler from "./assets/schooler.png";
-import Plankton from "./assets/plankton.png";
 import BubbleGroup from './BubbleGroup';
 import type {
-  Tier,
   PromptId,
   Prompt,
   Reveal,
   Response,
   History
 } from './types.ts';
-import { getISODate, getMaxRepresentedQuestions } from './utils.ts';
+import { 
+  getTierFromScore,
+  getISODate, 
+  getMaxRepresentedQuestions,
+  getImgForAnswer,
+  getPromptDiversityScore
+} from './utils.ts';
+import {
+  PROMPT_STORAGE_NAME,
+  ANSWER_STORAGE_NAME,
+  STATS_STORAGE_NAME
+} from './constants.ts';
 import ConfettiExplosion from 'react-confetti-explosion';
+import Stats from './Stats.tsx';
+import HowTo from './HowTo.tsx';
 
-const PROMPT_STORAGE_NAME = "prompts";
-const ANSWER_STORAGE_NAME = "answers";
-const STATS_STORAGE_NAME = "stats";
 const isoDate = getISODate();
 const playerId = crypto.randomUUID();
-
-const scoreMap = {
-  krillion: 100,
-  deepcut: 85,
-  rare: 60,
-  schooler: 30,
-  plankton: 10
-};
-
-const getTierFromScore = (x: number) => Object.entries(scoreMap).find(([_,v]) => v === x)?.[0];
 
 const scoreTrackMilestones = [30, 24, 18, 12, 9, 7];
 
@@ -55,11 +48,11 @@ function App() {
     setPage("how");
   }
 
-  // const handleStats = () => {
-  //   setPage("stats");
-  // }
+  const handleStats = () => {
+    setPage("stats");
+  }
 
-  const handleBack = () => {
+  const handleBack: MouseEventHandler<HTMLButtonElement> = () => {
     setPage("home");
   }
 
@@ -116,7 +109,13 @@ function App() {
       });
       const json = await res.json();
       if (json.success && json.status === 200 && json.data) {
-        localStorage.setItem(PROMPT_STORAGE_NAME, JSON.stringify(json));
+        // remove sub-krillion data to avoid overflowing localstorage capacity
+        const data: Reveal = json.data;
+        const krillionOnlyData = { 
+          date: data.date, 
+          prompts: data.prompts.map((p: Prompt) => ({ ...p, answers: p.answers.filter(a => a.score === 100) })) 
+        };
+        localStorage.setItem(PROMPT_STORAGE_NAME, JSON.stringify({ ...json, data: krillionOnlyData }));
         return json.data;
       }
     } catch(err) {
@@ -174,7 +173,7 @@ function App() {
     return maxScores.reduce((p, c) => p + c, 0);
   }, [reveal]);
 
-  const scoringAnswers = useMemo(() => {
+  const getScoringAnswers = useCallback((answers: Prompt[], goalScore: number) => {
     if (!answers.length) return [];
 
     const sortedUserScores = answers.map(x => x.answers.map(y => y.score)).flat().toSorted((a,b) => a > b ? -1 : 1);
@@ -182,7 +181,18 @@ function App() {
       const runningTotal = p1.reduce((p2, c2) => p2 + c2, 0);
       return runningTotal >= goalScore ? p1 : [...p1, c1];
     }, []);
+  }, []);
+
+  const scoringAnswers = useMemo(() => {
+    return getScoringAnswers(answers, goalScore);
   }, [answers, goalScore]);
+
+  const promptDiversity = useMemo(() => {
+    // y.     for each prompt, find number of scoringAnswers that are found in prompt.answers.map(a => a.score), without double counting
+    // y-bar. find average number of scoringAnswers found in each prompt.answers
+    // s2.    find sqrt[sum of (y - ybar)^2 / 7]
+    return getPromptDiversityScore(answers, scoringAnswers);
+  }, [scoringAnswers, answers]);
 
   const hasQualifiedScore = useMemo(() => (
     goalScore > 0 && scoringAnswers.reduce((p,c) => p + c, 0) >= goalScore
@@ -250,8 +260,21 @@ function App() {
     }
   }, []);
 
-  const saveAnswers = useCallback((answerList: Prompt[], goalScore: number) => {
+  const saveAnswers = useCallback((answerList: Prompt[], reveal: Reveal | undefined, goalScore: number) => {
     localStorage.setItem(ANSWER_STORAGE_NAME, JSON.stringify({ date: isoDate, answers: answerList }));
+
+    // reveal should always be defined when saving answers
+    reveal = reveal ?? { date: isoDate, prompts: [] };
+
+    const answersWithPrompts = answerList.map(a => ({
+      ...a,
+      text: reveal.prompts.find(p => p.id === a.id)?.text ?? ""
+    }));
+
+    const revealKrillions = { ...reveal, prompts: reveal.prompts.map(p => ({
+      ...p,
+      answers: p.answers.filter(a => a.score == 100)
+    }))};
 
     try {
       const cache = localStorage.getItem(STATS_STORAGE_NAME);
@@ -259,7 +282,8 @@ function App() {
       stats = stats.filter(x => x.date !== isoDate);
       stats.push({
         date: isoDate,
-        answers: answerList,
+        answers: answersWithPrompts,
+        reveal: revealKrillions,
         goalScore
       });
       localStorage.setItem(STATS_STORAGE_NAME, JSON.stringify(stats));
@@ -361,35 +385,9 @@ function App() {
     area.classList.add("scoring");
     setTimeout(() => area.classList.remove("scoring"), 1200);
 
-    saveAnswers(updatedAnswers, goalScore);
+    saveAnswers(updatedAnswers, reveal, goalScore);
     setAnswers(updatedAnswers);
     setIsSubmitting(false);
-  }
-
-  const getImgForAnswer = (input: Tier | number) => {
-    let imgSrc;
-    const value = typeof input === "number" ? input : scoreMap[input];
-    switch(value) {
-      case 100:
-        imgSrc = Krillion;
-        break;
-      case 85:
-        imgSrc = Deepcut;
-        break;
-      case 60:
-        imgSrc = Rare;
-        break;
-      case 30:
-        imgSrc = Schooler;
-        break;
-      case 10:
-        imgSrc = Plankton;
-        break;
-      default:
-        imgSrc = PlainKrillion;
-        break;
-    }
-    return imgSrc;
   }
 
   const handleShare = useCallback(async () => {
@@ -405,7 +403,7 @@ function App() {
       title: "🧊 Chill Krill 🦐 " + isoDate,
       text: "" + 
         `Chill Krill  -  ${isoDate}\n` + 
-        `[${scoringAnswers.length} dives | ${maxRepresentedQuestions} prompts]\n` + 
+        `[${hasQualifiedScore ? "" : "UNQUALIFIED | "}${scoringAnswers.length} answers | ${Math.floor(promptDiversity)} prompt diversity]\n` + 
         scoringAnswers
           .map(getTierFromScore)
           .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
@@ -439,7 +437,7 @@ function App() {
         <ConfettiExplosion 
           onComplete={handleExplosionEnd} 
           force={0.9}
-          duration={3000}
+          duration={5000}
           particleCount={300}
           colors={[
             '#4de3ff',
@@ -489,7 +487,7 @@ function App() {
             <div className="right"></div>
           </button>
           <button onClick={handleHow}>How to Play</button>
-          {/* <button onClick={handleStats}>Stats &amp; Achievements</button> */}
+          <button onClick={handleStats}>Stats &amp; Archive</button>
         </main>
       )}
       {page === "play" && (
@@ -504,12 +502,18 @@ function App() {
                 </span>
               ))}
             </div>}
-            <p id="hero-score">
-              {hasQualifiedScore
-                ? <>using <span className="hero-user-score">{scoringAnswers.length}</span> dives</>
-                : <><span className="hero-user-score">{scoringAnswers.reduce((p,c) => p + c, 0)}</span> / {goalScore}</>
-              }
-            </p>
+            <div id="hero-score-row">
+              <p id="hero-score">
+                {hasQualifiedScore
+                  ? <><span className="hero-user-score">{scoringAnswers.length}</span><span className="hero-score-label">answers</span></>
+                  : <span><span className="hero-user-score">{scoringAnswers.reduce((p,c) => p + c, 0)}</span> / {goalScore}</span>
+                }
+              </p>
+              {hasQualifiedScore && <p id="hero-diversity">
+                <span className="hero-user-score">{Math.floor(promptDiversity)}<span className="hero-user-score-unit">%</span></span>
+                <span className="hero-score-label">prompt diversity</span>
+              </p>}
+            </div>
             {hasQualifiedScore
               ? <div id="hero-answers">
                   {scoringAnswers.map((a,i) => {
@@ -559,57 +563,12 @@ function App() {
               </div>
             </div>
           )})}
-          {hasQualifiedScore && <button id="share-btn" className="primary-btn" onClick={handleShare}>Share Results</button>}
+          <button id="share-btn" className="primary-btn" onClick={handleShare}>Share {hasQualifiedScore ? "RESULTS" : "PROGRESS"}</button>
           <button id="back-button" onClick={handleBack}>&#9664;</button>
         </main>
       )}
-      {page === "how" && (
-        <main id="how-page">
-          <h1>Chill Krill</h1>
-          <button id="back-button" onClick={handleBack}>&#9664;</button>
-          <h2>How to Play</h2>
-          <p>You're presented with 7 general knowledge prompts. They'll look something like this:</p>
-          <div className="prompt-box">
-            <button className="prompt-box-title">
-              <img src={PlainKrillion} className="prompt-box-icon" alt="unanswered tier" />
-              <p>Name a world capital starting with "A-"</p>
-              <i className="toggle"></i>
-            </button>
-          </div>
-          <p>There are 100s to 1000s of possible answers to each prompt. More obscure answers are worth more points.</p>
-          <div id="how-score-table">
-            <img src={Plankton} data-tier="plankton" alt="plankton" />
-            <p>+10</p>
-            <img src={Schooler} data-tier="schooler" alt="schooler" />
-            <p>+30</p>
-            <img src={Rare} data-tier="rare" alt="rare" />
-            <p>+60</p>
-            <img src={Deepcut} data-tier="deepcut" alt="deep cut" />
-            <p>+85</p>
-            <img src={Krillion} data-tier="krillion" alt="krillion" />
-            <p>+100</p>
-          </div>
-          <p>Try to reach the goal score with as few "dives" (answers) as possible. But there's no rush!</p>
-          <p>Work your way to a perfect score before the puzzle resets at midnight EST.</p>
-          <div id="hero-answers">
-            {new Array(7).fill(100).map((a,i) => {
-              const imgSrc = getImgForAnswer(a);
-              const tier = Object.entries(scoreMap).find(([_,v]) => v === a)?.[0];
-              return (
-                <img src={imgSrc} key={i} className="hero-answer-icon" data-tier={tier} alt={tier} />
-            )})}
-          </div>
-          <p>Good luck!</p>
-          <button onClick={handleBack}>Swim Back</button>
-        </main>
-      )}
-      {page === "stats" && (
-        <main id="stats-page">
-          <h1>Chill Krill</h1>
-          <p>Coming soon</p>
-          <button id="back-button" onClick={handleBack}>&#9664;</button>
-        </main>
-      )}
+      {page === "how" && <HowTo handleBack={handleBack} />}
+      {page === "stats" && <Stats handleBack={handleBack} getScoringAnswers={getScoringAnswers} />}
       <footer>&copy; <span id="year">{new Date().getFullYear()}</span> // <a href="https://kroljs.com" rel="noopener noreferrer">Jacob Krol</a></footer>
     </>
   )
