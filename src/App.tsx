@@ -563,7 +563,7 @@ function App() {
               </div>
             </div>
           )})}
-          <button id="share-btn" className="primary-btn" onClick={handleShare}>Share {hasQualifiedScore ? "RESULTS" : "PROGRESS"}</button>
+          <button id="share-btn" className="primary-btn" onClick={handleShare}>Share {hasQualifiedScore ? "Results" : "Progress"}</button>
           <button id="back-button" onClick={handleBack}>&#9664;</button>
         </main>
       )}
