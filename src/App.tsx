@@ -12,8 +12,7 @@ import type {
 } from './types.ts';
 import { 
   getTierFromScore,
-  getISODate, 
-  getMaxRepresentedQuestions,
+  getISODate,
   getImgForAnswer,
   getPromptDiversityScore
 } from './utils.ts';
@@ -197,10 +196,6 @@ function App() {
   const hasQualifiedScore = useMemo(() => (
     goalScore > 0 && scoringAnswers.reduce((p,c) => p + c, 0) >= goalScore
   ), [scoringAnswers, goalScore]);
-
-  const maxRepresentedQuestions = useMemo(() => (
-    getMaxRepresentedQuestions(answers, scoringAnswers)
-  ), [answers, scoringAnswers]);
 
   const openQualifiedDialog = useCallback(() => {
     const dialog = document.getElementById("qualified-dialog") as HTMLDialogElement;
