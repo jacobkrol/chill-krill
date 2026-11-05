@@ -31,30 +31,28 @@ export default function Stats({
   }, []);
 
   const streak: number = useMemo(() => {
-    const today = new Date(getISODate()).setHours(0, 0, 0, 0);
-    const prevDates = stats.map(s => s.date);
-    
+    const dateFromIso = (iso: string) => new Date(iso).setUTCHours(0, 0, 0, 0);
+
+    const today = dateFromIso(getISODate());
+    const prevDates = stats.map(s => s.date).sort((a, b) => dateFromIso(b) - dateFromIso(a));
+
     if (!prevDates || prevDates.length === 0) return 0;
 
-    const uniqueSorted = [...new Set(prevDates)]
-      .map(d => new Date(d).setHours(0, 0, 0, 0))
-      .sort((a, b) => b - a);
-
-    let streak = 1;
+    let count = 0;
     const oneDayMs = 1000 * 60 * 60 * 24;
 
-    if (today - uniqueSorted[0] > oneDayMs) return 0;
+    if (today - dateFromIso(prevDates[0]) > oneDayMs) return 0;
 
-    for (let i = 0; i < uniqueSorted.length - 1; i++) {
-      const diff = (uniqueSorted[i] - uniqueSorted[i + 1]) / oneDayMs;
-      if (diff === 1) {
-        streak++;
-      } else {
-        break; // Streak broken
-      }
+    // if not played yet today, then start counting streak from yesterday
+    let start = today;
+    if (today - dateFromIso(prevDates[0]) === oneDayMs) {
+      start = dateFromIso(prevDates[0]);
     }
 
-    return streak;
+    prevDates.forEach((el, i) => {
+      if ((start - dateFromIso(el)) === i * oneDayMs) count++;
+    });
+    return count;
   }, [stats]);
 
   const bestDive: number[] = useMemo(() => {
@@ -100,13 +98,17 @@ export default function Stats({
         <h2>Dive Archive</h2>
         <div id="archive-list">
           {stats?.length 
-            ? stats.toSorted((a,b) => new Date(a.date) > new Date(b.date) ? -1 : 1).map(day => (
+            ? stats.toSorted((a,b) => new Date(a.date) > new Date(b.date) ? -1 : 1).map(day => {
+              const answers = getScoringAnswers(day.answers, day.goalScore);
+              const score = day.answers.map(a => a.answers.reduce((a,b) => a + b.score, 0)).reduce((a,b) => a + b, 0);
+              const isQualified = score >= day.goalScore;
+              return (
               <div key={day.date} className="archive-puzzle">
                 <p>{formatIsoDateNoTimezone(day.date)}</p>
-                <p>{getScoringAnswers(day.answers, day.goalScore).length} answer{getScoringAnswers(day.answers, day.goalScore).length === 1 ? "" : "s"}</p>
+                <p>{isQualified ? `${answers.length} answer${answers.length === 1 ? "" : "s"}` : "UNQUALIFIED"}</p>
                 <p>{day.answers.reduce((prev, prompt) => prev + prompt.answers.reduce((prev2, answer) => prev2 + answer.score, 0), 0)} / {day.goalScore}</p>
               </div>
-            )) 
+            )}) 
             : <p>Previous dives will appear here</p>}
         </div>
       </div>

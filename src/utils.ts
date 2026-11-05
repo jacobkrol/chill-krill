@@ -147,57 +147,52 @@ export function getMaxRepresentedQuestions(
 }
 
 export function getPromptDiversityScore(
-  prompts: Prompt[],
-  scoringAnswers: number[],
-  k = 2
+  prompts: Prompt[]
 ): number {
-  const n = scoringAnswers.length;
+  const numPrompts = 7;
 
-  if (n === 0 || prompts.length <= 1) return 0;
+  const maxPromptSum = 350;
+  const threshold = 700;
 
-  const required = new Map<number, number>();
+  // Sum answer scores, applying the per-prompt cap.
+  const promptSums = prompts
+    .map(prompt =>
+      Math.min(
+        prompt.answers.reduce((sum, answer) => sum + answer.score, 0),
+        maxPromptSum
+      )
+    )
+    .concat(new Array(numPrompts).fill(0))
+    .slice(0, numPrompts);
 
-  for (const score of scoringAnswers) {
-    required.set(score, (required.get(score) ?? 0) + 1);
+  // check for exactly 100 (ensures 100% even with Math.floor on UI)
+  const { allEqual } = promptSums.reduce((acc, curr, i) => ({ 
+    value: curr, 
+    allEqual: acc.allEqual && (acc.value === curr || i === 0)
+  }), { value: -1, allEqual: true });
+
+  if (prompts.length === numPrompts && allEqual) {
+    return 100;
   }
 
-  const contributions = prompts.map(prompt => {
-    const available = new Map<number, number>();
+  // Transform each prompt's score into a soft contribution.
+  const contributions = promptSums.map(
+    sum => sum / (sum + threshold)
+  );
 
-    for (const answer of prompt.answers) {
-      available.set(
-        answer.score,
-        (available.get(answer.score) ?? 0) + 1
-      );
-    }
+  const total = contributions.reduce((sum, value) => sum + value, 0);
 
-    let count = 0;
+  if (total === 0) return 0;
 
-    for (const [score, needed] of required) {
-      count += Math.min(available.get(score) ?? 0, needed);
-    }
+  const proportions = contributions.map(value => value / total);
 
-    return count;
-  });
-
-  const mean = contributions.reduce((a, b) => a + b, 0)
-    / prompts.length;
-
-  const variance = contributions.reduce(
-    (sum, count) => sum + (count - mean) ** 2,
+  // Normalized Shannon entropy: 0 for one prompt, 1 for equal distribution.
+  // Range: [0,ln(7))
+  const entropy = -1 * proportions.reduce(
+    (sum, p) => p > 0 ? sum + p * Math.log(p) : sum,
     0
-  ) / prompts.length;
+  );
 
-  const maxStdDev =
-    (n * Math.sqrt(Math.floor(prompts.length ** 2 / 4)))
-    / prompts.length;
-
-  const normalizedDeviation = Math.sqrt(variance) / maxStdDev;
-
-  const score =
-    100 * (
-      Math.exp(-k * normalizedDeviation) - Math.exp(-k)
-    ) / (1 - Math.exp(-k));
-
-  return Math.max(0, Math.min(100, score));
+  const base = 20;
+  return -100 * Math.log(-1 * entropy * (1 - base ** -1) / Math.log(numPrompts) + 1) / Math.log(base);
 }

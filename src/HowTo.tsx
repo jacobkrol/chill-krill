@@ -38,8 +38,8 @@ export default function HowTo({
         <img src={Krillion} data-tier="krillion" alt="krillion" />
         <p>+100</p>
       </div>
-      <p>Try to reach the goal score with as few "dives" (answers) as possible. But there's no rush!</p>
-      <p>Work your way to a perfect score before the puzzle resets at midnight EST.</p>
+      <p>Try to reach the goal score with as few answers as possible. Guesses are unlimited! Your top scoring answers will automatically be selected.</p>
+      <p>There's no rush! Work your way to a perfect score before the puzzle resets at midnight EST.</p>
       <div id="hero-answers">
         {new Array(7).fill(100).map((a,i) => {
           const imgSrc = getImgForAnswer(a);

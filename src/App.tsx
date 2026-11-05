@@ -140,7 +140,7 @@ function App() {
   const hydratePuzzle = useCallback(async () => {
     if (!reveal || reveal?.date !== isoDate) {
       try {
-        const res = await fetchReveal()
+        const res = await fetchReveal();
         if (!res) throw new Error("Error loading answers");
         setReveal(res);
       } catch(err) {
@@ -191,7 +191,7 @@ function App() {
     // y.     for each prompt, find number of scoringAnswers that are found in prompt.answers.map(a => a.score), without double counting
     // y-bar. find average number of scoringAnswers found in each prompt.answers
     // s2.    find sqrt[sum of (y - ybar)^2 / 7]
-    return getPromptDiversityScore(answers, scoringAnswers);
+    return getPromptDiversityScore(answers);
   }, [scoringAnswers, answers]);
 
   const hasQualifiedScore = useMemo(() => (
@@ -312,6 +312,12 @@ function App() {
     const prevResponses = [...responses].filter(r => r.promptId !== promptId);
     setResponses(prevResponses);
 
+    // do not submit whitespace
+    if (userValue.trim().length === 0) {
+      setIsSubmitting(false);
+      return;
+    }
+
     // Request:
     // { answer: "title", date: "1986-02-05", playerId: "xxxxxx-xxxx-...", previewCorrection: true, promptId: "p1" }
 
@@ -403,7 +409,7 @@ function App() {
       title: "🧊 Chill Krill 🦐 " + isoDate,
       text: "" + 
         `Chill Krill  -  ${isoDate}\n` + 
-        `[${hasQualifiedScore ? "" : "UNQUALIFIED | "}${scoringAnswers.length} answers | ${Math.floor(promptDiversity)} prompt diversity]\n` + 
+        `[${scoringAnswers.length} answers | ${Math.floor(promptDiversity)}% diversity | ${score}/${goalScore}]\n` + 
         scoringAnswers
           .map(getTierFromScore)
           .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
@@ -425,7 +431,7 @@ function App() {
         console.error(clipboardErr);
       }
     }
-  }, [scoringAnswers, maxRepresentedQuestions]);
+  }, [scoringAnswers, hasQualifiedScore, score, goalScore]);
 
   const handleExplosionEnd = () => {
     setIsExploding(false);
@@ -493,7 +499,7 @@ function App() {
       {page === "play" && (
         <main id="play-page">
           <h1>Chill Krill</h1>
-          <div id="hero-section">
+          {reveal?.prompts.length && <div id="hero-section">
             {hasQualifiedScore && <div id="score-track">
               {scoreTrackMilestones.map((val, i) => (
                 <span key={i} className="score-track-block">
@@ -524,7 +530,15 @@ function App() {
                   )})}
                 </div>
               : <p id="unqualified-note">Not yet qualified. Reach the goal score first and then improve your answer score efficiency!</p>}
-          </div>
+          </div>}
+          {!reveal?.prompts.length && <div id="loading-reveal-message">
+            <p>Loading today's dive...</p>
+            <span>
+              <img src={BrandKrillion} className="hero-answer-icon" alt="krill" data-tier="plankton" />
+              <img src={BrandKrillion} className="hero-answer-icon" alt="krill" data-tier="plankton" />
+              <img src={BrandKrillion} className="hero-answer-icon" alt="krill" data-tier="plankton" />
+            </span>
+          </div>}
           {reveal && reveal.prompts.map((p) => {
             const userAnswers = answers.find(a => a.id === p.id)?.answers;
             const topAnswer = (userAnswers ?? []).reduce((p, c) => (c.score > p.score ? c : p), { score: 0, tier: "" });
@@ -563,7 +577,7 @@ function App() {
               </div>
             </div>
           )})}
-          <button id="share-btn" className="primary-btn" onClick={handleShare}>Share {hasQualifiedScore ? "Results" : "Progress"}</button>
+          {reveal?.prompts.length && <button id="share-btn" className="primary-btn" onClick={handleShare}>Share {hasQualifiedScore ? "Results" : "Progress"}</button>}
           <button id="back-button" onClick={handleBack}>&#9664;</button>
         </main>
       )}
