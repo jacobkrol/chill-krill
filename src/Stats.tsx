@@ -132,15 +132,15 @@ export default function Stats({
       <div id="hero-stat-container">
         <h2 className="section-title col-span-full">Diver Stats</h2>
         <div className="hero-stat">
-          <p>{streak} day{streak === 1 ? "" : "s"}</p>
-          <label>Current Streak</label>
+          <p>{streak}</p>
+          <label>Active Streak</label>
         </div>
         <div className="hero-stat">
-          <p>{maxStreak} day{maxStreak === 1 ? "" : "s"}</p>
+          <p>{maxStreak}</p>
           <label>Max Streak</label>
         </div>
         <div className="hero-stat">
-          <p>{stats.length} dive{stats.length === 1 ? "" : "s"}</p>
+          <p>{stats.length.toLocaleString("en-US")}</p>
           <label>Total Dives</label>
         </div>
         <div className="hero-stat">
@@ -149,10 +149,10 @@ export default function Stats({
         </div>
         <div className="hero-stat">
           <p>{Math.floor(widestDive)}%</p>
-          <label>Best Diversity</label>
+          <label>Best Diversity<sup>*</sup></label>
         </div>
         <div className="hero-stat">
-          <p>{deepestDive} pts</p>
+          <p>{deepestDive.toLocaleString("en-US")}</p>
           <label>Deepest Dive</label>
         </div>
         <div className="hero-stat col-span-full">
@@ -180,7 +180,7 @@ export default function Stats({
             : <p>Previous dives will appear here</p>}
         </div>
       </div>
-      <p className="footnote"><sup>*</sup>Average number of answers submitted for "qualified" dives only</p>
+      <p className="footnote"><sup>*</sup>&nbsp;Among "qualified" dives only</p>
       <button id="back-button" onClick={handleBack}>&#9664;</button>
     </main>
   )

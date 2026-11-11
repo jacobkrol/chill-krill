@@ -529,6 +529,7 @@ function App() {
                   )})}
                 </div>
               : <p id="unqualified-note">Not yet qualified. Reach the goal score first and then improve your answer score efficiency!</p>}
+            {hasQualifiedScore && <p id="hero-answer-caption">Reached {goalScore} points using only {scoringAnswers.length} answers</p>}
           </div>}
           {!reveal?.prompts.length && <div id="loading-reveal-message">
             <p>Loading today's dive...</p>
