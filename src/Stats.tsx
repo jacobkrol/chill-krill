@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEventHandler } from "react";
-import { formatIsoDateNoTimezone, getISODate, getImgForAnswer, getTierFromScore } from "./utils";
+import { formatIsoDateNoTimezone, getISODate, getImgForAnswer, getPromptDiversityScore, getTierFromScore } from "./utils";
 import type { History, Prompt } from "./types";
 import { STATS_STORAGE_NAME } from "./constants";
 
@@ -30,11 +30,14 @@ export default function Stats({
     loadStatsFromMemory();
   }, []);
 
-  const streak: number = useMemo(() => {
+  const getStreakOnDay = useCallback((date: string, stats: History[]) => {
     const dateFromIso = (iso: string) => new Date(iso).setUTCHours(0, 0, 0, 0);
-
-    const today = dateFromIso(getISODate());
-    const prevDates = stats.map(s => s.date).sort((a, b) => dateFromIso(b) - dateFromIso(a));
+    
+    const today = dateFromIso(date);
+    const prevDates = stats
+      .map(s => s.date)
+      .toSorted((a, b) => dateFromIso(b) - dateFromIso(a))
+      .filter(d => dateFromIso(d) <= today);
 
     if (!prevDates || prevDates.length === 0) return 0;
 
@@ -53,6 +56,18 @@ export default function Stats({
       if ((start - dateFromIso(el)) === i * oneDayMs) count++;
     });
     return count;
+  }, []);
+
+
+  const streak: number = useMemo(() => {
+    return getStreakOnDay(getISODate(), stats);
+  }, [stats]);
+
+  const maxStreak: number = useMemo(() => {
+    return stats.reduce((prev, curr) => {
+      const currStreak = getStreakOnDay(curr.date, stats);
+      return currStreak > prev ? currStreak : prev;
+    }, 0);
   }, [stats]);
 
   const bestDive: number[] = useMemo(() => {
@@ -79,15 +94,68 @@ export default function Stats({
     }, []);
   }, [stats]);
 
+  const avgAnswers: number = useMemo(() => {
+    if(!stats || !stats.length) return 0;
+
+    const numCompletedDives = stats.filter(s => s.answers.reduce((prev, prompt) => prev + prompt.answers.reduce((prev2, answer) => prev2 + answer.score, 0), 0) >= s.goalScore).length;
+    const numScoringAnswers = stats.reduce((prev, curr) => {
+      const isCompleted = curr.answers.reduce((prev, prompt) => prev + prompt.answers.reduce((prev2, answer) => prev2 + answer.score, 0), 0) >= curr.goalScore;
+      if (!isCompleted) return prev;
+      const scoringAnswers = getScoringAnswers(curr.answers, curr.goalScore);
+      return prev + scoringAnswers.length;
+    }, 0);
+    return numScoringAnswers / numCompletedDives;
+  }, [stats]);
+
+  const widestDive: number = useMemo(() => {
+    if(!stats || !stats.length) return 0;
+
+    return stats.reduce((prev: number, curr: History) => {
+      if (curr.answers.reduce((prev, prompt) => prev + prompt.answers.reduce((prev2, answer) => prev2 + answer.score, 0), 0) < curr.goalScore) return prev;
+      const promptDiversity = getPromptDiversityScore(curr.answers);
+      return promptDiversity > prev ? promptDiversity : prev;
+    }, 0);
+  }, [stats]);
+
+  const deepestDive: number = useMemo(() => {
+    if(!stats || !stats.length) return 0;
+
+    return stats.reduce((prev: number, curr: History) => {
+      const score = curr.answers.reduce((prev, prompt) => prev + prompt.answers.reduce((prev2, answer) => prev2 + answer.score, 0), 0);
+      return score > prev ? score : prev;
+    }, 0);
+  }, [stats]);
+
   return (
     <main id="stats-page">
       <h1>Chill Krill</h1>
       <div id="hero-stat-container">
+        <h2 className="section-title col-span-full">Diver Stats</h2>
         <div className="hero-stat">
           <p>{streak} day{streak === 1 ? "" : "s"}</p>
           <label>Current Streak</label>
         </div>
         <div className="hero-stat">
+          <p>{maxStreak} day{maxStreak === 1 ? "" : "s"}</p>
+          <label>Max Streak</label>
+        </div>
+        <div className="hero-stat">
+          <p>{stats.length} dive{stats.length === 1 ? "" : "s"}</p>
+          <label>Total Dives</label>
+        </div>
+        <div className="hero-stat">
+          <p>{avgAnswers.toFixed(1)}</p>
+          <label>Avg Answers<sup>*</sup></label>
+        </div>
+        <div className="hero-stat">
+          <p>{Math.floor(widestDive)}%</p>
+          <label>Best Diversity</label>
+        </div>
+        <div className="hero-stat">
+          <p>{deepestDive} pts</p>
+          <label>Deepest Dive</label>
+        </div>
+        <div className="hero-stat col-span-full">
           <div id="best-dive-img-row">{bestDive.map((score, i) => (
             <img key={i} src={getImgForAnswer(score)} className="hero-answer-icon" alt={getTierFromScore(score)} data-tier={getTierFromScore(score)} />
           ))}</div>
@@ -112,6 +180,7 @@ export default function Stats({
             : <p>Previous dives will appear here</p>}
         </div>
       </div>
+      <p className="footnote"><sup>*</sup>Average number of answers submitted for "qualified" dives only</p>
       <button id="back-button" onClick={handleBack}>&#9664;</button>
     </main>
   )

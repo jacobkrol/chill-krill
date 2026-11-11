@@ -395,9 +395,9 @@ function App() {
     const emojiMap = {
       "plankton": "🫧",
       "schooler": "🐟",
-      "rare": "🔴",
-      "deepcut": "🟣",
-      "krillion": "⭐"
+      "rare": "🟥",
+      "deepcut": "🟪",
+      "krillion": "🌟"
     };
 
     const shareData = {
@@ -470,8 +470,8 @@ function App() {
       <dialog id="overtime-dialog">
         <div className="dialog-body">
           <p className="dialog-title">Onto the Next Dive</p>
-          <p>This puzzle is no longer available. You'll need to refresh your page to play today's puzzle.</p>
-          <p>You can share this puzzle's results one last time before refreshing, if you'd like.</p>
+          <p className="mb-10">This puzzle is no longer available. You'll need to refresh your page to play today's puzzle.</p>
+          <p>You can share this dive's results one last time before refreshing, if you'd like.</p>
           <div className="dialog-btn-row">
             <button className="primary-btn" onClick={handleShare}>Share</button>
             <button commandfor="overtime-dialog" command="close">Okay</button>
@@ -504,15 +504,19 @@ function App() {
               ))}
             </div>}
             <div id="hero-score-row">
+              {hasQualifiedScore && <p id="hero-diversity">
+                <span className="hero-user-score">{Math.floor(promptDiversity)}<span className="hero-user-score-unit">%</span></span>
+                <span className="hero-score-label">diversity</span>
+              </p>}
               <p id="hero-score">
                 {hasQualifiedScore
                   ? <><span className="hero-user-score">{scoringAnswers.length}</span><span className="hero-score-label">answers</span></>
                   : <span><span className="hero-user-score">{scoringAnswers.reduce((p,c) => p + c, 0)}</span> / {goalScore}</span>
                 }
               </p>
-              {hasQualifiedScore && <p id="hero-diversity">
-                <span className="hero-user-score">{Math.floor(promptDiversity)}<span className="hero-user-score-unit">%</span></span>
-                <span className="hero-score-label">prompt diversity</span>
+              {hasQualifiedScore && <p id="hero-points">
+                <span className="hero-user-score">{score}</span>
+                <span className="hero-score-label">points</span>
               </p>}
             </div>
             {hasQualifiedScore
@@ -550,7 +554,7 @@ function App() {
                 <div className="prompt-box-content">
                   {answers.find(a => a.id === p.id)?.answers.length
                     ? (<div className="answer-result-list">
-                        {answers.find(a => a.id === p.id)?.answers.toSorted((a,b) => a.score > b.score ? -1 : 1).map((a, i) => (
+                        {answers.find(a => a.id === p.id)?.answers.toSorted((a,b) => b.score - a.score || a.answer.localeCompare(b.answer)).map((a, i) => (
                           <React.Fragment key={i}>
                             <p>{a.answer}</p>
                             <p>+{a.score}</p>

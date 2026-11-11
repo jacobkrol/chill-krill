@@ -198,12 +198,12 @@ dialog {
     align-items: flex-start;
   }
 
-  #hero-score, #hero-diversity {
+  #hero-score, #hero-diversity, #hero-points {
     font-size: 1.25rem;
     display: flex;
     flex-direction: column;
     align-items: center;
-    flex-basis: 135px;
+    flex-grow: 0;
     line-height: 1;
 
     .hero-user-score-unit {
@@ -212,6 +212,17 @@ dialog {
 
     .hero-score-label {
       color: var(--color-faded);
+    }
+  }
+
+  #hero-diversity, #hero-points {
+    align-self: flex-end;
+
+    .hero-score-label {
+      font-size: 0.9rem;
+    }
+    .hero-user-score {
+      font-size: 2.2rem;
     }
   }
 
@@ -510,13 +521,27 @@ dialog {
   gap: 30px;
   width: 100%;
   padding: 0  20px;
+
+  .footnote {
+    font-size: 0.8rem;
+    color: var(--color-faded);
+  }
 }
 
 #hero-stat-container {
-  display: flex;
-  justify-content: space-evenly;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  row-gap: 20px;
   align-items: center;
   width: 100%;
+
+  .section-title {
+    align-self: baseline;
+  }
+
+  .col-span-full {
+    grid-column: 1 / -1;
+  }
 }
 
 .hero-stat {
@@ -530,6 +555,7 @@ dialog {
 
   label {
     color: var(--color-faded);
+    text-align: center;
   }
 }
 
@@ -539,7 +565,7 @@ dialog {
   align-items: center;
   flex-wrap: wrap;
   gap: 0;
-  max-width: 125px;
+  margin-bottom: 5px;
 
   img {
     width: 28px;
@@ -588,4 +614,8 @@ a {
 footer {
   margin-top: auto;
   padding-top: 30px;
+}
+
+.mb-10 {
+  margin-bottom: 10px;
 }
