@@ -283,7 +283,8 @@ dialog {
     }
   }
 
-  .prompt-box-title {
+  .prompt-box-title,
+  .archive-puzzle-title {
     font-size: 1.25rem;
     display: flex;
     align-items: center;
@@ -316,7 +317,8 @@ dialog {
     margin-right: 8px;
   }
 
-  .prompt-box:has(.prompt-box-area.active) button {
+  .prompt-box:has(.prompt-box-area.active) button,
+  .archive-puzzle:has(.archive-puzzle-area.active) button {
     border-bottom-left-radius: 0px;
     border-bottom-right-radius: 0px;
 
@@ -341,7 +343,8 @@ dialog {
   }
 }
 
-.prompt-box-area {
+.prompt-box-area,
+.archive-puzzle-area {
   max-height: 0;
   overflow: hidden;
   background-color: var(--bg);
@@ -349,7 +352,7 @@ dialog {
 
   &.active {
     border: 3px solid var(--border-color);
-    border-top: none;
+    border-top: none !important;
     border-radius: 0 0 var(--btn-radius) var(--btn-radius);
   }
 
@@ -372,8 +375,15 @@ dialog {
     box-shadow: 0 0 36px 3px var(--tier-color) inset;
   }
 
-  .prompt-box-content {
+  .prompt-box-content,
+  .archive-puzzle-content {
     margin: 24px 10px;
+  }
+}
+
+.archive-puzzle-area {
+  &.active {
+    border: 2px solid var(--color-faded);
   }
 }
 
@@ -531,7 +541,7 @@ dialog {
   align-items: center;
   gap: 30px;
   width: 100%;
-  padding: 0  20px;
+  padding: 0 10px;
 
   .footnote {
     font-size: 0.8rem;
@@ -594,13 +604,15 @@ dialog {
   gap: 15px;
   margin-top: 15px;
 
-  .archive-puzzle {
+  .archive-puzzle-title {
     display: grid;
-    grid-template-columns: 115px 1fr 80px;
+    grid-template-columns: 115px 1fr 10px;
     border: 2px solid var(--color-faded);
     border-radius: var(--btn-radius);
     font-size: 1.2rem;
     padding: 16px 12px;
+    background-color: var(--bg);
+    box-shadow: 0 0 6px color(var(--color-faded) / 0.5);
 
     p {
       text-align: left;
@@ -608,6 +620,79 @@ dialog {
 
     p.faded {
       color: var(--color-faded);
+    }
+
+    .archive-puzzle-stats {
+      display: flex;
+      justify-content: flex-start;
+      gap: 10px;
+
+      & > span:not(:last-child)::after {
+        content: "|";
+        margin-left: 10px;
+      }
+    }
+  }
+
+  .archive-puzzle-content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .archive-puzzle-prompt-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: flex-start;
+    margin-top: 30px;
+
+    .archive-puzzle-prompt-title {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-start;
+      align-items: center;
+      line-height: 1;
+    }
+
+    .archive-puzzle-prompt-icon {
+      height: 28px;
+    }
+
+    .archive-puzzle-prompt-text {
+      text-align: left;
+    }
+
+    .archive-puzzle-prompt-krillion-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 5px;
+      margin-left: 50px;
+
+      .archive-puzzle-prompt-krillion {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      img {
+        height: 28px;
+      }
+
+      &.hidden {
+        display: none;
+      }
+    }
+  }
+
+  .archive-puzzle-action-row {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-top: 30px;
+
+    button {
+      margin: 0 10px;
     }
   }
 }

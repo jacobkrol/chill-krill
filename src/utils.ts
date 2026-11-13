@@ -79,7 +79,7 @@ export function getPromptDiversityScore(
 ): number {
   const numPrompts = 7;
 
-  const maxPromptSum = 350;
+  const maxPromptSum = 700;
   const threshold = 700;
 
   // Sum answer scores, applying the per-prompt cap.
@@ -123,4 +123,41 @@ export function getPromptDiversityScore(
 
   const base = 20;
   return -100 * Math.log(-1 * entropy * (1 - base ** -1) / Math.log(numPrompts) + 1) / Math.log(base);
+}
+
+export async function handleShare(scoringAnswers: number[], promptDiversity: number, score: number, goalScore: number, isoDate: string) {
+  const emojiMap = {
+      "plankton": "🫧",
+      "schooler": "🐟",
+      "rare": "🟥",
+      "deepcut": "🟪",
+      "krillion": "🌟"
+    };
+
+    const shareData = {
+      title: "🧊 Chill Krill 🦐 " + isoDate,
+      text: "" + 
+        `Chill Krill  -  ${isoDate}\n` + 
+        `[${scoringAnswers.length} answers | ${Math.floor(promptDiversity)}% diversity | ${score}/${goalScore}]\n` + 
+        scoringAnswers
+          .map(getTierFromScore)
+          .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
+          .map(tier => emojiMap[tier])
+          .join("") + "\n\n",
+      url: "https://chill-krill.kroljs.com"
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+      } catch (clipboardErr) {
+        console.error(clipboardErr);
+      }
+    }
 }

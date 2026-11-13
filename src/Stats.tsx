@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type MouseEventHandler } from "react";
-import { formatIsoDateNoTimezone, getISODate, getImgForAnswer, getPromptDiversityScore, getTierFromScore } from "./utils";
+import { 
+  formatIsoDateNoTimezone, 
+  getISODate, 
+  getImgForAnswer, 
+  getPromptDiversityScore, 
+  getTierFromScore,
+  handleShare
+} from "./utils";
 import type { History, Prompt } from "./types";
 import { STATS_STORAGE_NAME } from "./constants";
 
@@ -11,6 +18,7 @@ export default function Stats({
   getScoringAnswers: (answers: Prompt[], goalScore: number) => number[]
 }) {
   const [stats, setStats] = useState<History[]>([]);
+  const [revealedKrillions, setRevealedKrillions] = useState<string[]>([]);
 
   const loadStatsFromMemory = useCallback(() => {
     try {
@@ -29,6 +37,33 @@ export default function Stats({
   useEffect(() => {
     loadStatsFromMemory();
   }, []);
+
+  const refreshBoxHeight = useCallback(() => {
+      [...document.querySelectorAll(".archive-puzzle-area.active")].forEach((box: any) => {
+        box.style.maxHeight = box.scrollHeight + "px";
+      })
+    }, []);
+
+  const handleCollapseClick = (evt: any) => {
+    [...document.querySelectorAll(".archive-puzzle-title")].forEach(btn => {
+      if (btn !== evt.currentTarget) {
+        btn.classList.remove("active");
+        const contentBox = btn.nextElementSibling as HTMLDivElement;
+        contentBox.style.maxHeight = "";
+        contentBox.classList.remove("active");
+      }
+    });
+
+    evt.currentTarget.classList.toggle("active");
+    const content = evt.currentTarget.nextElementSibling;
+    if (content.style.maxHeight){
+      content.style.maxHeight = null;
+      content.classList.remove("active");
+    } else {
+      content.style.maxHeight = content.scrollHeight + "px";
+      content.classList.add("active");
+    }
+  }
 
   const getStreakOnDay = useCallback((date: string, stats: History[]) => {
     const dateFromIso = (iso: string) => new Date(iso).setUTCHours(0, 0, 0, 0);
@@ -126,6 +161,29 @@ export default function Stats({
     }, 0);
   }, [stats]);
 
+  const handleToggleKrillions = useCallback((day: string) => {
+    const dayStats = stats.find(s => s.date === day);
+    if (!dayStats) return;
+
+    const isHiding = revealedKrillions.includes(day);
+
+    setRevealedKrillions(prev => isHiding ? prev.filter(d => d !== day) : [...prev, day]);
+    const krillionListElements = document.querySelectorAll(`.archive-puzzle[data-date="${day}"] .archive-puzzle-prompt-krillion-list`);
+    if (!krillionListElements) return;
+    krillionListElements.forEach(element => element.classList.toggle("hidden", isHiding));
+
+    refreshBoxHeight();
+  }, [revealedKrillions, stats]);
+
+  const handleShareButton = useCallback((day: string) => {
+    const userAnswers = stats.find(s => s.date === day)?.answers ?? [];
+    const goalScore = stats.find(s => s.date === day)?.goalScore ?? 0;
+    const scoringAnswers = getScoringAnswers(userAnswers, goalScore);
+    const promptDiversity = getPromptDiversityScore(userAnswers);
+    const score = userAnswers.reduce((prev, prompt) => prev + prompt.answers.reduce((prev2, answer) => prev2 + answer.score, 0), 0);
+    handleShare(scoringAnswers, promptDiversity, score, goalScore, day);
+  }, [stats, getScoringAnswers, getPromptDiversityScore]);
+
   return (
     <main id="stats-page">
       <h1>Chill Krill</h1>
@@ -168,19 +226,96 @@ export default function Stats({
           {stats?.length 
             ? stats.toSorted((a,b) => new Date(a.date) > new Date(b.date) ? -1 : 1).map(day => {
               const answers = getScoringAnswers(day.answers, day.goalScore);
+              const diversity = getPromptDiversityScore(day.answers);
               const score = day.answers.map(a => a.answers.reduce((a,b) => a + b.score, 0)).reduce((a,b) => a + b, 0);
               const isQualified = score >= day.goalScore;
               return (
-              <div key={day.date} className="archive-puzzle">
-                <p>{formatIsoDateNoTimezone(day.date)}</p>
-                <p>{isQualified ? `${answers.length} answer${answers.length === 1 ? "" : "s"}` : "UNQUALIFIED"}</p>
-                <p>{day.answers.reduce((prev, prompt) => prev + prompt.answers.reduce((prev2, answer) => prev2 + answer.score, 0), 0)} / {day.goalScore}</p>
-              </div>
-            )}) 
+                <div key={day.date} className="archive-puzzle" data-date={day.date}>
+                  <button className="archive-puzzle-title" onClick={handleCollapseClick}>
+                    <p>{formatIsoDateNoTimezone(day.date)}</p>
+                    <p className="archive-puzzle-stats">
+                      {isQualified ? (
+                        <>
+                        <span><strong>{answers.length}</strong></span>
+                        <span>{Math.floor(diversity)}%</span>
+                        <span>{score}</span>
+                        </>
+                      ) : <span>UNQUALIFIED</span>}
+                    </p>
+                    <i className="toggle"></i>
+                  </button>
+                  <div className="archive-puzzle-area">
+                    <div className="archive-puzzle-content">
+                      <div id="hero-score-row">
+                        <div className="hero-stat archive-puzzle-hero-diversity">
+                          <p>{Math.floor(diversity)}%</p>
+                          <label>diversity</label>
+                        </div>
+                        <div className="hero-stat archive-puzzle-hero-answers">
+                          <p>{answers.length}</p>
+                          <label>answer{answers.length !== 1 ? 's' : ''}</label>
+                        </div>
+                        <div className="hero-stat archive-puzzle-hero-score">
+                          <p>{score}</p>
+                          <label>points</label>
+                        </div>
+                      </div>
+                      <div id="hero-answers">
+                        {answers.map((a,i) => {
+                          const imgSrc = getImgForAnswer(a);
+                          const tier = getTierFromScore(a);
+                          return (
+                            <img src={imgSrc} key={i} className="hero-answer-icon" data-tier={tier} alt={tier} />
+                        )})}
+                      </div>
+                      {day.reveal?.prompts?.length && (
+                        <>
+                          <div className="archive-puzzle-prompt-list">
+                            {day.reveal.prompts.map((prompt, i) => {
+                              const answers = day.answers.find(a => a.id === prompt.id)?.answers;
+                              const topAnswer = answers ? answers.reduce((prev, curr) => prev.score > curr.score ? prev : curr) : null;
+                              const topScore = topAnswer?.score ?? 0;
+                              return (
+                                <div key={i} className="archive-puzzle-prompt">
+                                  <div className="archive-puzzle-prompt-title">
+                                    <img src={getImgForAnswer(topScore)} className="archive-puzzle-prompt-icon" data-tier={getTierFromScore(topScore)} alt={getTierFromScore(topScore)} />
+                                    <p className="archive-puzzle-prompt-text">{prompt.text}</p>
+                                  </div>
+                                  <div className="archive-puzzle-prompt-krillion-list hidden">
+                                    {prompt.answers.map((answer, j) => {
+                                      const imgSrc = getImgForAnswer(answer.score);
+                                      const tier = getTierFromScore(answer.score);
+                                      return (
+                                        <div key={j} className="archive-puzzle-prompt-krillion">
+                                          <img src={imgSrc} className="archive-puzzle-prompt-icon" data-tier={tier} alt={tier} />
+                                          <p className="archive-puzzle-prompt-krillion-text">{answer.answer}</p>
+                                        </div>
+                                      );
+                                    })}
+                                    {prompt.answers.length === 0 && (
+                                      <div className="archive-puzzle-prompt-krillion">
+                                        <p className="archive-puzzle-prompt-krillion-text">This prompt had no Krillions</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="archive-puzzle-action-row">
+                            <button onClick={() => handleToggleKrillions(day.date)}>{revealedKrillions.includes(day.date) ? "Hide" : "Reveal"} Krillions</button>
+                            <button className="primary-btn" onClick={() => handleShareButton(day.date)}>Share This Day</button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}) 
             : <p>Previous dives will appear here</p>}
         </div>
       </div>
-      <p className="footnote"><sup>*</sup>&nbsp;Among "qualified" dives only</p>
+      <p className="footnote"><sup>*</sup>&nbsp;Among "qualified" dives only (&ge; goal score, typically 700)</p>
       <button id="back-button" onClick={handleBack}>&#9664;</button>
     </main>
   )

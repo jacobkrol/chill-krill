@@ -14,7 +14,8 @@ import {
   getTierFromScore,
   getISODate,
   getImgForAnswer,
-  getPromptDiversityScore
+  getPromptDiversityScore,
+  handleShare
 } from './utils.ts';
 import {
   PROMPT_STORAGE_NAME,
@@ -59,7 +60,7 @@ function App() {
     [...document.querySelectorAll(".prompt-box-area.active")].forEach((box: any) => {
       box.style.maxHeight = box.scrollHeight + "px";
     })
-  }, [answers])
+  }, [answers]);
 
   const handleCollapseClick = (evt: any) => {
     [...document.querySelectorAll(".prompt-box-title")].forEach(btn => {
@@ -391,42 +392,9 @@ function App() {
     setIsSubmitting(false);
   }
 
-  const handleShare = useCallback(async () => {
-    const emojiMap = {
-      "plankton": "🫧",
-      "schooler": "🐟",
-      "rare": "🟥",
-      "deepcut": "🟪",
-      "krillion": "🌟"
-    };
-
-    const shareData = {
-      title: "🧊 Chill Krill 🦐 " + isoDate,
-      text: "" + 
-        `Chill Krill  -  ${isoDate}\n` + 
-        `[${scoringAnswers.length} answers | ${Math.floor(promptDiversity)}% diversity | ${score}/${goalScore}]\n` + 
-        scoringAnswers
-          .map(getTierFromScore)
-          .filter((tier): tier is keyof typeof emojiMap => tier !== undefined)
-          .map(tier => emojiMap[tier])
-          .join("") + "\n\n",
-      url: "https://chill-krill.kroljs.com"
-    }
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.error(err);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareData.url);
-      } catch (clipboardErr) {
-        console.error(clipboardErr);
-      }
-    }
-  }, [scoringAnswers, hasQualifiedScore, score, goalScore]);
+  const handleShareButton = useCallback(() => {
+    handleShare(scoringAnswers, promptDiversity, score, goalScore, isoDate);
+  }, [scoringAnswers, promptDiversity, score, goalScore, isoDate]);
 
   const handleExplosionEnd = () => {
     setIsExploding(false);
@@ -462,7 +430,7 @@ function App() {
           <p className="dialog-title">Perfect Score!</p>
           <p>You've found a top scoring answer to every prompt. Share with your friends to show off the <em>depth</em> of your knowledge!</p>
           <div className="dialog-btn-row">
-            <button className="primary-btn" onClick={handleShare}>Share</button>
+            <button className="primary-btn" onClick={handleShareButton}>Share</button>
             <button commandfor="perfect-dialog" command="close">Close</button>
           </div>
         </div>
@@ -473,7 +441,7 @@ function App() {
           <p className="mb-10">This puzzle is no longer available. You'll need to refresh your page to play today's puzzle.</p>
           <p>You can share this dive's results one last time before refreshing, if you'd like.</p>
           <div className="dialog-btn-row">
-            <button className="primary-btn" onClick={handleShare}>Share</button>
+            <button className="primary-btn" onClick={handleShareButton}>Share</button>
             <button commandfor="overtime-dialog" command="close">Okay</button>
           </div>
         </div>
@@ -577,7 +545,7 @@ function App() {
               </div>
             </div>
           )})}
-          {reveal?.prompts.length && <button id="share-btn" className="primary-btn" onClick={handleShare}>Share {hasQualifiedScore ? "Results" : "Progress"}</button>}
+          {reveal?.prompts.length && <button id="share-btn" className="primary-btn" onClick={handleShareButton}>Share {hasQualifiedScore ? "Results" : "Progress"}</button>}
           <button id="back-button" onClick={handleBack}>&#9664;</button>
         </main>
       )}
